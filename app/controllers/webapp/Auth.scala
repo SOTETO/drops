@@ -32,7 +32,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import models._
 import models.dispenser._
 import services.{ Pool1Service, UserService, UserTokenService}
-import utils.{Mailer, Nats}
+import utils.Mailer
 import org.joda.time.DateTime
 import persistence.pool1.PoolService
 import play.api.data.validation.{Constraint, Invalid, Valid, ValidationError}
@@ -40,10 +40,11 @@ import java.util.Base64
 
 import play.api.libs.json.{JsError, JsObject, JsValue, Json}
 object AuthForms {
+  
 
   // Sign up
   case class SignUpData(email:String, password:String, firstName: Option[String], lastName: Option[String],
-                        mobilePhone:Option[String], placeOfResidence: Option[String], birthday:Option[Date], gender: String)
+                        mobilePhone:Option[String], placeOfResidence: Option[String], birthday:Option[Date], gender: String, street: Option[String], additional: Option[String], city: Option[String], zip: Option[String], country: Option[String], address: Option[AddressStub] )
 
   object SignUpData {
     implicit val signUpDataJsonFormat = Json.format[SignUpData]
@@ -121,8 +122,7 @@ class Auth @Inject() (
   passwordHasher: PasswordHasher,
   configuration: Configuration,
   pool: PoolService,
-  mailer: Mailer,
-  nats: Nats) extends Silhouette[User,CookieAuthenticator] {
+  mailer: Mailer) extends Silhouette[User,CookieAuthenticator] {
 
   import AuthForms._
 
@@ -139,21 +139,34 @@ class Auth @Inject() (
           case Some(_) =>
             Future.successful(WebAppResult.Bogus(request, "error.userExists", List(signUpData.email), "AuthProvider.SignUp.UserExists", Json.toJson(Map[String, String]())).getResult)
           case None =>
-            val profile = Profile(loginInfo, signUpData.email, signUpData.firstName, signUpData.lastName, signUpData.mobilePhone, signUpData.placeOfResidence, signUpData.birthday, signUpData.gender)
+            val profile = Profile(
+              loginInfo,
+              signUpData.email,
+              signUpData.firstName,
+              signUpData.lastName,
+              signUpData.mobilePhone,
+              signUpData.placeOfResidence,
+              signUpData.birthday,
+              signUpData.gender,
+              signUpData.address.flatMap(a => a.isEmpty match {
+                case true => None
+                case _ => Some(a)
+              })
+            )
             for {
               avatarUrl <- avatarService.retrieveURL(signUpData.email)
               user <- userService.save(User(id = UUID.randomUUID(), List(profile), updated = System.currentTimeMillis(), created = System.currentTimeMillis()))
               pw <- authInfoRepository.add(loginInfo, passwordHasher.hash(signUpData.password))
-              token <- userTokenService.save(UserToken.create(user.id, signUpData.email, true))
+              token <- userTokenService.save(UserToken.create(user.get.id, signUpData.email, true))
             } yield {
               getWebApp match {
                 case Left(message) => WebAppResult.NotFound(request, message._1, Nil, "AuthProvider.SignUp.MissingConfig", Map[String, String]()).getResult
                 case Right(webapp) => {
-                  mailer.welcome(profile, link = webapp.getAbsoluteSignUpTokenEndpoint(token.id.toString))
-                  WebAppResult.Ok(request, "signup.created", Nil, "AuthProvider.SignUp.Success", Json.toJson(profile)).getResult
-                }
+                    mailer.welcome(profile, link = webapp.getAbsoluteSignUpTokenEndpoint(token.id.toString))
+                    WebAppResult.Ok(request, "signup.created", Nil, "AuthProvider.SignUp.Success", Json.toJson(profile)).getResult
               }
             }
+          }
         }
       }
     )
@@ -205,7 +218,6 @@ class Auth @Inject() (
     Future.successful(request.identity match {
       case Some(user) => WebAppResult.Ok(request, "signin.success", Nil, "AuthProvider.Identity.Success", PublicUser(user)).getResult
       case _ => WebAppResult.Unauthorized(request, "error.noAuthenticatedUser", Nil, "AuthProvider.Identity.Unauthorized", Map[String, String]()).getResult
-
     })
   }
 
@@ -456,7 +468,7 @@ class Auth @Inject() (
           case Some(user) => for {
             token <- userTokenService.save(UserToken.create(user.id, email.address, isSignUp = false))
           } yield {
-            mailer.resetPassword(email.address, link = controllers.webapp.routes.Auth.resetEmail(token.id.toString).absoluteURL())
+            mailer.resetEmail(email.address, link = controllers.webapp.routes.Auth.resetEmail(token.id.toString).absoluteURL())
             WebAppResult.Ok(request, "reset.instructions", List(email.address), "AuthProvider.ResetEmail.Success").getResult
           }
         }

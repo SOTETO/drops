@@ -30,7 +30,17 @@ class Oauth2RestApi @Inject()(
     Future.successful(Ok(
       Json.obj(
         "id" -> request.authInfo.user.id,
-        "profiles" -> JsArray(profilesJson)
+        "profiles" -> JsArray(profilesJson),
+        "roles" -> request.authInfo.user.roles
+      )
+    ))
+  }
+
+  def uuid = AuthorizedAction(oauthDataHandler).async { request =>
+    val user = request.authInfo.user.profiles.headOption
+    Future.successful(Ok(
+      Json.obj(
+        "id" -> request.authInfo.user.id
       )
     ))
   }

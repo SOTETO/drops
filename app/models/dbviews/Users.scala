@@ -10,6 +10,7 @@ case class Users (
                  profile: Option[ProfileView],
                  loginInfo: Option[LoginInfoView],
                  supporterView: Option[SupporterView],
+                 addressView: Option[AddressView],
                  supporterCrewView: Option[SupporterCrewView]
                  )extends ViewObject{
   def getValue(viewname: String): ViewBase = {
@@ -19,6 +20,7 @@ case class Users (
       case "loginInfo" => loginInfo.get
       case "supporter" => supporterView.get
       case "supporterCrew" => supporterCrewView.get
+      case "address" => addressView.get
     }
   }
 
@@ -29,20 +31,22 @@ case class Users (
       case "loginInfo" => loginInfo.isDefined
       case "supporter" => supporterView.isDefined
       case "supporterCrew" => supporterCrewView.isDefined
+      case "address" => addressView.isDefined
     }
   }
 }
 
 object Users{
-  def apply(tuple: (Option[UserView], Option[ProfileView], Option[LoginInfoView], Option[SupporterView], Option[SupporterCrewView])) : Users =
-    Users(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)
+  def apply(tuple: (Option[UserView], Option[ProfileView], Option[LoginInfoView], Option[SupporterView], Option[AddressView], Option[SupporterCrewView])) : Users =
+    Users(tuple._1, tuple._2, tuple._3, tuple._4, tuple._5, tuple._6)
 
   implicit val usersWrites : OWrites[Users] = (
     (JsPath \ "user").writeNullable[UserView] and
       (JsPath \ "profile").writeNullable[ProfileView] and
       (JsPath \ "loginInfo").writeNullable[LoginInfoView] and
       (JsPath \ "supporter").writeNullable[SupporterView] and
-      (JsPath \ "supporterCrew").writeNullable[SupporterCrewView]
+      (JsPath \ "address").writeNullable[AddressView] and
+      (JsPath \ "supporterCrew").writeNullable[SupporterCrewView] 
   )(unlift(Users.unapply))
 
   implicit val usersReads: Reads[Users] = (
@@ -50,6 +54,7 @@ object Users{
       (JsPath \ "profile").readNullable[ProfileView] and
       (JsPath \ "loginInfo").readNullable[LoginInfoView] and
       (JsPath \ "supporter").readNullable[SupporterView] and
+      (JsPath \ "address").readNullable[AddressView] and
       (JsPath \ "supporterCrew").readNullable[SupporterCrewView]
   ).tupled.map(Users( _ ))
 }
@@ -332,7 +337,8 @@ case class SupporterCrewView(
                               role : Option[Map[String, String]],
                               pillar : Option[Map[String, String]],
                               publicId : Option[Map[String, UUID]],
-                              name : Option[Map[String, String]]
+                              name : Option[Map[String, String]],
+                              active : Option[Map[String, String]]
                             ) extends ViewBase {
   def getValue(fieldname: String, index: Int): Any = {
     fieldname match {
@@ -340,6 +346,7 @@ case class SupporterCrewView(
       case "pillar" => pillar.get.get(index.toString).get
       case "publicId" => publicId.get.get(index.toString).get
       case "name" => name.get.get(index.toString).get
+      case "active" => active.get.get(index.toString).get
     }
   }
 
@@ -371,19 +378,26 @@ case class SupporterCrewView(
           case false => false
         }
       }
+      case "active" => {
+        active.isDefined match {
+          case true => active.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
     }
   }
 }
 
 object SupporterCrewView {
-  def apply(t: (Option[Map[String, String]], Option[Map[String, String]], Option[Map[String, UUID]], Option[Map[String, String]])): SupporterCrewView =
-    SupporterCrewView(t._1, t._2, t._3, t._4)
+  def apply(t: (Option[Map[String, String]], Option[Map[String, String]], Option[Map[String, UUID]], Option[Map[String, String]], Option[Map[String, String]])): SupporterCrewView =
+    SupporterCrewView(t._1, t._2, t._3, t._4, t._5)
 
   implicit val supporterCrewViewWrites : OWrites[SupporterCrewView] = (
     (JsPath \ "role").writeNullable[Map[String, String]] and
       (JsPath \ "pillar").writeNullable[Map[String, String]] and
       (JsPath \ "publicId").writeNullable[Map[String, UUID]] and
-      (JsPath \ "name").writeNullable[Map[String, String]]
+      (JsPath \ "name").writeNullable[Map[String, String]] and
+      (JsPath \ "active").writeNullable[Map[String, String]]
     )(unlift(SupporterCrewView.unapply))
 
   implicit val supporterCrewViewReads : Reads[SupporterCrewView] = (
@@ -394,7 +408,101 @@ object SupporterCrewView {
       (JsPath \ "publicId").readNullable[Map[String, UUID]].orElse(
         (JsPath \ "publicId").readNullable[UUID].map(_.map(p => Map("0" -> p)))) and
       (JsPath \ "name").readNullable[Map[String, String]].orElse(
-        (JsPath \ "name").readNullable[String].map(_.map(n => Map("0" -> n))))
+        (JsPath \ "name").readNullable[String].map(_.map(n => Map("0" -> n)))) and
+      (JsPath \ "active").readNullable[Map[String, String]].orElse(
+        (JsPath \ "active").readNullable[String].map(_.map(n => Map("inactive" -> n))))
 
     ).tupled.map(SupporterCrewView( _ ))
+}
+
+case class AddressView(
+  publicId: Option[Map[String, UUID]],
+  street: Option[Map[String, String]],
+  additional: Option[Map[String, String]],
+  zip: Option[Map[String, String]],
+  city: Option[Map[String, String]],
+  country: Option[Map[String, String]]
+) extends ViewBase {
+    
+  def getValue(fieldname: String, index: Int): Any = {
+    fieldname match {
+      case "publicId" => publicId.get.get(index.toString).get
+      case "street" => street.get.get(index.toString).get
+      case "additional" => additional.get.get(index.toString).get
+      case "zip" => zip.get.get(index.toString).get
+      case "city" => city.get.get(index.toString).get
+      case "country" => country.get.get(index.toString).get
+    }
+  }
+    
+    
+  def isFieldDefined(fieldname: String, index: Int): Boolean = {
+    fieldname match {
+      case "publicId" => {
+        publicId.isDefined match {
+          case true => publicId.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
+      case "street" => {
+        street.isDefined match {
+          case true => street.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
+      case "additional" => {
+        additional.isDefined match {
+          case true => additional.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
+      case "zip" => {
+        zip.isDefined match {
+          case true => zip.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
+      case "city" => {
+        city.isDefined match {
+          case true => city.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
+      case "country" => {
+        country.isDefined match {
+          case true => country.get.keySet.contains(index.toString)
+          case false => false
+        }
+      }
+    }
+  }
+}
+
+object AddressView {
+  def apply(t:(Option[Map[String, UUID]], Option[Map[String, String]], Option[Map[String, String]], Option[Map[String, String]], Option[Map[String, String]], Option[Map[String, String]])): AddressView = AddressView(t._1, t._2, t._3, t._4, t._5, t._6)
+  
+  implicit val addressViewWrites: OWrites[AddressView] = (
+    (JsPath \ "publicId").writeNullable[Map[String, UUID]] and
+    (JsPath \ "street").writeNullable[Map[String, String]] and
+    (JsPath \ "additional").writeNullable[Map[String, String]] and
+    (JsPath \ "zip").writeNullable[Map[String, String]] and
+    (JsPath \ "city").writeNullable[Map[String, String]] and
+    (JsPath \ "country").writeNullable[Map[String, String]] 
+  )(unlift(AddressView.unapply))
+
+  implicit val addressViewReads: Reads[AddressView] = (
+    (JsPath \ "publicId").readNullable[Map[String, UUID]].orElse(
+      (JsPath \ "publicId").readNullable[UUID].map(_.map(p => Map("0" -> p)))) and 
+    (JsPath \ "street").readNullable[Map[String, String]].orElse(
+      (JsPath \ "street").readNullable[String].map(_.map(p => Map("0" -> p)))) and 
+    (JsPath \ "additional").readNullable[Map[String, String]].orElse(
+      (JsPath \ "additional").readNullable[String].map(_.map(p => Map("0" -> p)))) and
+    (JsPath \ "zip").readNullable[Map[String, String]].orElse(
+      (JsPath \ "zip").readNullable[String].map(_.map(p => Map("0" -> p)))) and
+    (JsPath \ "city").readNullable[Map[String, String]].orElse(
+      (JsPath \ "city").readNullable[String].map(_.map(p => Map("0" -> p)))) and
+    (JsPath \ "country").readNullable[Map[String, String]].orElse(
+      (JsPath \ "country").readNullable[String].map(_.map(p => Map("0" -> p))))
+  ).tupled.map(AddressView( _ ))
+
 }

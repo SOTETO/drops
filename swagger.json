@@ -1,18 +1,18 @@
 {
 	"openapi": "3.0.0",
 	"info": {
-		"title": "Viva con Agua Drops REST API",
+		"title": "Heureka Drops REST API",
 		"description": "Drops handles the business objects `User`, `Crew` and `Organization`. For the objects `User` and `Crew` are already some endpoints defined.",
 		"version": "0.1.1"		
 	},
 	"servers": [
 		{
-			"url": "https://pool.vivaconagua.org/drops/rest",
-			"description": "Live Server"
+			"url": "https://soteto.informatik.hu-berlin.de/drops/rest",
+			"description": "Heureka! Live Server"
 		},
 		{
-			"url": "https://vca.informatik.hu-berlin.de/drops/rest",
-			"description": "Staging Server"
+			"url": "https://pool2.vivaconagua.org/drops/rest",
+			"description": "Viva con Agua Pool² Live Server"
 		}
 	],
 	"components": {
